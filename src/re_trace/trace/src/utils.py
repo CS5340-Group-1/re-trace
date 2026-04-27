@@ -4,10 +4,10 @@ from .hmm import HMM
 from .sohmm import SOHMM
 import pandas as pd
 
-torch.set_float32_matmul_precision('high')
+torch.set_float32_matmul_precision("high")
 
 
-def load_hmm_model(hmm_model_path: str, device: str = 'cuda:0') -> HMM:
+def load_hmm_model(hmm_model_path: str, device: str = "cuda:0") -> HMM:
     """
     Load the pretrained HMM model.
 
@@ -22,7 +22,8 @@ def load_hmm_model(hmm_model_path: str, device: str = 'cuda:0') -> HMM:
     hmm_model.eval()
     return hmm_model
 
-def load_sohmm_model(hmm_model_path: str, device: str = 'cuda:0') -> SOHMM:
+
+def load_sohmm_model(hmm_model_path: str, device: str = "cuda:0") -> SOHMM:
     """
     Load the pretrained SOHMM model.
 
@@ -36,6 +37,7 @@ def load_sohmm_model(hmm_model_path: str, device: str = 'cuda:0') -> SOHMM:
     hmm_model = SOHMM.from_pretrained(hmm_model_path, local_files_only=True).to(device)
     hmm_model.eval()
     return hmm_model
+
 
 def load_weights(weights_file: str, device: str = "cpu") -> torch.Tensor:
     """
@@ -53,18 +55,20 @@ def load_weights(weights_file: str, device: str = "cpu") -> torch.Tensor:
     except Exception as e:
         raise FileNotFoundError(f"Failed to read weights file '{weights_file}': {e}")
 
-    required_columns = {'Token ID', 'Coefficient'}
+    required_columns = {"Token ID", "Coefficient"}
     if not required_columns.issubset(df_weights.columns):
         raise ValueError(f"Weights CSV must contain columns: {required_columns}")
 
-    df_weights = df_weights.sort_values('Token ID').reset_index(drop=True)
+    df_weights = df_weights.sort_values("Token ID").reset_index(drop=True)
 
     expected_token_ids = list(range(len(df_weights)))
-    actual_token_ids = df_weights['Token ID'].tolist()
+    actual_token_ids = df_weights["Token ID"].tolist()
     if actual_token_ids != expected_token_ids:
-        raise ValueError("Token IDs in weights file are not sequential starting from 0.")
+        raise ValueError(
+            "Token IDs in weights file are not sequential starting from 0."
+        )
 
-    coefficients = df_weights['Coefficient'].values
+    coefficients = df_weights["Coefficient"].values
     weights_tensor = torch.tensor(coefficients, dtype=torch.float32, device=device)
 
     return weights_tensor

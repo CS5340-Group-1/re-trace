@@ -204,7 +204,9 @@ def load_clone_schedule_function(spec: str):
     path_text, function_name = spec.rsplit(":", 1)
     source_path = Path(path_text).expanduser()
     if not source_path.exists():
-        raise FileNotFoundError(f"Clone schedule function path not found: {source_path}")
+        raise FileNotFoundError(
+            f"Clone schedule function path not found: {source_path}"
+        )
 
     if source_path.suffix == ".ipynb":
         with open(source_path, encoding="utf-8") as fin:
@@ -283,7 +285,10 @@ def call_clone_schedule_function(
 
 def summarize_clone_schedule(clones_per_token: torch.Tensor) -> str:
     counts = torch.unique(clones_per_token, return_counts=True)
-    parts = [f"{int(clone_count)}x:{int(num_tokens)}" for clone_count, num_tokens in zip(*counts)]
+    parts = [
+        f"{int(clone_count)}x:{int(num_tokens)}"
+        for clone_count, num_tokens in zip(*counts)
+    ]
     hidden_states = int(clones_per_token.sum().item())
     return f"hidden_states={hidden_states}, schedule=({', '.join(parts)})"
 
@@ -296,8 +301,12 @@ def collect_pair_codes(
 
     schedule_file = args.clone_schedule_file or f"{args.data_path}/{args.dataset}.lvd"
     if Path(schedule_file).exists():
-        seqs = load_sequences(schedule_file, args.sample_length, mmap=not args.disable_mmap)
-        pair_code_set.update(collect_pair_codes_from_sequences(seqs, vocab_size).tolist())
+        seqs = load_sequences(
+            schedule_file, args.sample_length, mmap=not args.disable_mmap
+        )
+        pair_code_set.update(
+            collect_pair_codes_from_sequences(seqs, vocab_size).tolist()
+        )
 
     num_chunks = (
         args.total_chunks
@@ -308,10 +317,14 @@ def collect_pair_codes(
     for chunk_idx in range(num_chunks):
         path = chunk_file(args.data_path, args.dataset, chunk_idx, args.total_chunks)
         seqs = load_sequences(path, args.sample_length, mmap=not args.disable_mmap)
-        pair_code_set.update(collect_pair_codes_from_sequences(seqs, vocab_size).tolist())
+        pair_code_set.update(
+            collect_pair_codes_from_sequences(seqs, vocab_size).tolist()
+        )
 
     if not pair_code_set:
-        raise ValueError("No observed token pairs were found to initialize sparse CHMM blocks.")
+        raise ValueError(
+            "No observed token pairs were found to initialize sparse CHMM blocks."
+        )
 
     return torch.tensor(sorted(pair_code_set), dtype=torch.long)
 
@@ -407,7 +420,7 @@ def configure_runtime(
     props = torch.cuda.get_device_properties(device)
     capability = torch.cuda.get_device_capability(device)
     runtime["gpu_name"] = props.name
-    runtime["gpu_memory_gb"] = props.total_memory / (1024 ** 3)
+    runtime["gpu_memory_gb"] = props.total_memory / (1024**3)
     runtime["capability"] = capability
 
     if not args.disable_pin_memory:
@@ -521,7 +534,9 @@ def train_chmm(
                 dist_all_reduce(dev_ll)
 
                 if rank == 0:
-                    msg = f"{args.checkpoint}\t{-1.0}\t{dev_ll.item() / max(dev_size, 1)}"
+                    msg = (
+                        f"{args.checkpoint}\t{-1.0}\t{dev_ll.item() / max(dev_size, 1)}"
+                    )
                     print(msg)
                     if args.log_file:
                         with open(args.log_file, "a+", encoding="utf-8") as fout:
@@ -548,7 +563,9 @@ def train_chmm(
 
                     if local_chunk.shape[0] == 0:
                         continue
-                    chunk_fully_observed = args.dropout <= 0.0 and not torch.any(local_chunk == -1)
+                    chunk_fully_observed = args.dropout <= 0.0 and not torch.any(
+                        local_chunk == -1
+                    )
 
                     gather_train_eval_subset(
                         train_eval_parts,
@@ -562,13 +579,19 @@ def train_chmm(
                     ):
                         cpu_batch = local_chunk[batch_idx : batch_idx + args.batch_size]
                         batch = move_batch_to_device(cpu_batch, device, runtime)
-                        batch = apply_dropout(batch, args.dropout, vocab_size, eos_token_id)
+                        batch = apply_dropout(
+                            batch, args.dropout, vocab_size, eos_token_id
+                        )
 
                         if chunk_fully_observed or not torch.any(batch == -1):
-                            model.accumulate_observed(batch, transition_counts, gamma_counts)
+                            model.accumulate_observed(
+                                batch, transition_counts, gamma_counts
+                            )
                         else:
                             probs = model.forward(batch)
-                            model.backward(batch, probs, transition_counts, None, gamma_counts)
+                            model.backward(
+                                batch, probs, transition_counts, None, gamma_counts
+                            )
 
             dist_all_reduce(transition_counts)
             dist_all_reduce(gamma_counts)
@@ -585,7 +608,9 @@ def train_chmm(
                 else:
                     train_data_eval = dev_data[:0].clone()
 
-                train_ll = compute_loglikelihood(model, train_data_eval, args.batch_size)
+                train_ll = compute_loglikelihood(
+                    model, train_data_eval, args.batch_size
+                )
                 dev_ll = compute_loglikelihood(model, dev_data, args.batch_size)
 
             dist_all_reduce(train_ll)

@@ -26,13 +26,14 @@ from transformers import GPT2Tokenizer
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, os.pardir))
 
+
 def load_attribute_data(jsonl_path: str, attribute: str = "toxicity") -> pd.DataFrame:
     """Load and parse attribute data from JSONL file."""
     print(f"Loading data from {jsonl_path}...")
     print(f"Target attribute: {attribute}")
 
     data = []
-    with open(jsonl_path, 'r', encoding='utf-8') as f:
+    with open(jsonl_path, "r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
             try:
                 record = json.loads(line.strip())
@@ -50,10 +51,13 @@ def load_attribute_data(jsonl_path: str, attribute: str = "toxicity") -> pd.Data
 
     if prompt_attr_col not in df.columns or cont_attr_col not in df.columns:
         print(f"❌ Attribute '{attribute}' not found in data!")
-        print(f"Available attributes: {[col.split('.')[1] for col in df.columns if '.' in col and col.startswith(('prompt.', 'continuation.'))]}")
+        print(
+            f"Available attributes: {[col.split('.')[1] for col in df.columns if '.' in col and col.startswith(('prompt.', 'continuation.'))]}"
+        )
         sys.exit(1)
 
     return df
+
 
 def preprocess_scores(toxicity_scores: np.ndarray, b: float, c: float) -> tuple:
     """
@@ -93,6 +97,7 @@ def preprocess_scores(toxicity_scores: np.ndarray, b: float, c: float) -> tuple:
 
     return transformed_scores, log_transformed_scores, original_scores
 
+
 def create_token_matrix(texts: list, tokenizer) -> tuple:
     """
     Create sparse count matrix from tokenized texts.
@@ -103,10 +108,14 @@ def create_token_matrix(texts: list, tokenizer) -> tuple:
     print("Creating token count matrix...")
 
     # Tokenize all texts
-    tokenized_texts = [tokenizer.encode(text, add_special_tokens=False) for text in texts]
+    tokenized_texts = [
+        tokenizer.encode(text, add_special_tokens=False) for text in texts
+    ]
 
     # Get unique token IDs
-    unique_token_ids = sorted(set(token_id for tokens in tokenized_texts for token_id in tokens))
+    unique_token_ids = sorted(
+        set(token_id for tokens in tokenized_texts for token_id in tokens)
+    )
     token_id_to_index = {token_id: idx for idx, token_id in enumerate(unique_token_ids)}
 
     print(f"Found {len(unique_token_ids)} unique tokens")
@@ -122,6 +131,7 @@ def create_token_matrix(texts: list, tokenizer) -> tuple:
     print(f"Count matrix shape: {X.shape}")
 
     return X, token_id_to_index
+
 
 def fit_lasso_model(X, y: np.ndarray, alpha: float) -> tuple:
     """
@@ -151,7 +161,10 @@ def fit_lasso_model(X, y: np.ndarray, alpha: float) -> tuple:
 
     return coefficients, fitted_log_scores
 
-def save_coefficients(coefficients: np.ndarray, token_id_to_index: dict, vocab_size: int, output_path: str):
+
+def save_coefficients(
+    coefficients: np.ndarray, token_id_to_index: dict, vocab_size: int, output_path: str
+):
     """Save full vocabulary coefficients to CSV file."""
     print(f"Saving coefficients to {output_path}...")
 
@@ -164,7 +177,7 @@ def save_coefficients(coefficients: np.ndarray, token_id_to_index: dict, vocab_s
 
     # Save to CSV
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8', newline='') as f:
+    with open(output_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["Token ID", "Coefficient"])
         for token_id in range(vocab_size):
@@ -172,8 +185,13 @@ def save_coefficients(coefficients: np.ndarray, token_id_to_index: dict, vocab_s
 
     print(f"✓ Coefficients saved to {output_path}")
 
-def evaluate_model(true_scores: np.ndarray, fitted_scores: np.ndarray,
-                  log_true_scores: np.ndarray, fitted_log_scores: np.ndarray):
+
+def evaluate_model(
+    true_scores: np.ndarray,
+    fitted_scores: np.ndarray,
+    log_true_scores: np.ndarray,
+    fitted_log_scores: np.ndarray,
+):
     """Evaluate model performance with various metrics."""
     print("\nModel Performance:")
     print("-" * 40)
@@ -186,50 +204,101 @@ def evaluate_model(true_scores: np.ndarray, fitted_scores: np.ndarray,
     print(f"MSE (log space): {mse_log:.6f}")
     print(f"R² (log space): {r2:.6f}")
 
-def create_diagnostic_plot(original_scores: np.ndarray, transformed_scores: np.ndarray,
-                          fitted_scores: np.ndarray, b: float, c: float, alpha: float, attribute: str = "toxicity"):
+
+def create_diagnostic_plot(
+    original_scores: np.ndarray,
+    transformed_scores: np.ndarray,
+    fitted_scores: np.ndarray,
+    b: float,
+    c: float,
+    alpha: float,
+    attribute: str = "toxicity",
+):
     """Create a diagnostic plot showing original, transformed, and fitted distributions."""
     plt.figure(figsize=(12, 6))
-    plt.rcParams.update({'font.size': 12})
+    plt.rcParams.update({"font.size": 12})
 
     bins = np.linspace(0, 1, 101)
 
-    plt.hist(original_scores, bins=bins, alpha=0.6, label='Original', density=True,
-             color='red', edgecolor='black', linewidth=0.5)
-    plt.hist(transformed_scores, bins=bins, alpha=0.5, label='Transformed', density=True,
-             color='blue', edgecolor='black', linewidth=0.5)
-    plt.hist(fitted_scores, bins=bins, alpha=0.4, label='Fitted', density=True,
-             color='green', edgecolor='black', linewidth=0.5)
+    plt.hist(
+        original_scores,
+        bins=bins,
+        alpha=0.6,
+        label="Original",
+        density=True,
+        color="red",
+        edgecolor="black",
+        linewidth=0.5,
+    )
+    plt.hist(
+        transformed_scores,
+        bins=bins,
+        alpha=0.5,
+        label="Transformed",
+        density=True,
+        color="blue",
+        edgecolor="black",
+        linewidth=0.5,
+    )
+    plt.hist(
+        fitted_scores,
+        bins=bins,
+        alpha=0.4,
+        label="Fitted",
+        density=True,
+        color="green",
+        edgecolor="black",
+        linewidth=0.5,
+    )
 
-    plt.xlabel(f'{attribute.title()} Score')
-    plt.ylabel('Density')
-    plt.title(f'{attribute.title()} Score Distributions (b={b}, c={c}, α={alpha})')
+    plt.xlabel(f"{attribute.title()} Score")
+    plt.ylabel("Density")
+    plt.title(f"{attribute.title()} Score Distributions (b={b}, c={c}, α={alpha})")
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
 
     # Save plot
-    plot_path = os.path.join(PROJECT_ROOT, f"results/fit_diagnostic_b{b}_c{c}_alpha{alpha}.png")
+    plot_path = os.path.join(
+        PROJECT_ROOT, f"results/fit_diagnostic_b{b}_c{c}_alpha{alpha}.png"
+    )
     os.makedirs(os.path.dirname(plot_path), exist_ok=True)
-    plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+    plt.savefig(plot_path, dpi=150, bbox_inches="tight")
     print(f"✓ Diagnostic plot saved to {plot_path}")
     plt.show()
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Fit attribute prediction model with Lasso regression.")
-    parser.add_argument("--data_path", type=str,
-                        default="data/RTP_train.jsonl",
-                        help="Path to training data JSONL file")
-    parser.add_argument("--attribute", type=str, default="toxicity",
-                        help="Attribute to predict (toxicity, politics, etc.)")
-    parser.add_argument("--b", type=float, default=10.0,
-                        help="Scaling factor for logit transformation")
-    parser.add_argument("--c", type=float, default=3.0,
-                        help="Shift factor for logit transformation")
-    parser.add_argument("--alpha", type=float, default=1e-6,
-                        help="Lasso regularization strength")
-    parser.add_argument("--output_path", type=str, default=None,
-                        help="Output path for coefficients (default: data/coefficients_{attribute}.csv)")
+    parser = argparse.ArgumentParser(
+        description="Fit attribute prediction model with Lasso regression."
+    )
+    parser.add_argument(
+        "--data_path",
+        type=str,
+        default="data/RTP_train.jsonl",
+        help="Path to training data JSONL file",
+    )
+    parser.add_argument(
+        "--attribute",
+        type=str,
+        default="toxicity",
+        help="Attribute to predict (toxicity, politics, etc.)",
+    )
+    parser.add_argument(
+        "--b", type=float, default=10.0, help="Scaling factor for logit transformation"
+    )
+    parser.add_argument(
+        "--c", type=float, default=3.0, help="Shift factor for logit transformation"
+    )
+    parser.add_argument(
+        "--alpha", type=float, default=1e-6, help="Lasso regularization strength"
+    )
+    parser.add_argument(
+        "--output_path",
+        type=str,
+        default=None,
+        help="Output path for coefficients (default: data/coefficients_{attribute}.csv)",
+    )
 
     args = parser.parse_args()
 
@@ -281,10 +350,18 @@ def main():
     evaluate_model(transformed_scores, fitted_scores, log_scores, fitted_log_scores)
 
     # Create diagnostic plot
-    create_diagnostic_plot(original_scores, transformed_scores, fitted_scores,
-                          args.b, args.c, args.alpha, args.attribute)
+    create_diagnostic_plot(
+        original_scores,
+        transformed_scores,
+        fitted_scores,
+        args.b,
+        args.c,
+        args.alpha,
+        args.attribute,
+    )
 
     print("\n✓ Model fitting completed successfully!")
+
 
 if __name__ == "__main__":
     main()

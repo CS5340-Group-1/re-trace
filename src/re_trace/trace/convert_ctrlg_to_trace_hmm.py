@@ -14,7 +14,7 @@ dst_dir.mkdir(parents=True, exist_ok=True)
 with open(src_dir / "config.json", "r") as f:
     cfg = json.load(f)
 
-hidden_size = cfg["hidden_states"]   # Ctrl-G name
+hidden_size = cfg["hidden_states"]  # Ctrl-G name
 vocab_size = cfg["vocab_size"]
 eos_token_id = cfg["eos_token_id"]
 
@@ -25,10 +25,14 @@ if (src_dir / "model.safetensors").exists():
 elif (src_dir / "pytorch_model.bin").exists():
     state = torch.load(src_dir / "pytorch_model.bin", map_location="cpu")
 else:
-    raise FileNotFoundError(f"No model.safetensors or pytorch_model.bin found in {src_dir}")
+    raise FileNotFoundError(
+        f"No model.safetensors or pytorch_model.bin found in {src_dir}"
+    )
 
 # Build TRACE HMM
-trace_hmm = TraceHMM(hidden_size=hidden_size, vocab_size=vocab_size, eos_token_id=eos_token_id)
+trace_hmm = TraceHMM(
+    hidden_size=hidden_size, vocab_size=vocab_size, eos_token_id=eos_token_id
+)
 
 # Map compatible parameters
 with torch.no_grad():

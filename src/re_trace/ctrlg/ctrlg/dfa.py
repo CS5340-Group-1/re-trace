@@ -42,9 +42,9 @@ def edges2dict(edges):
 
 
 def DFA_remove_unreachable_states(A):
-    edges = A['edges']
-    initial_state = A['initial_state']
-    accept_states = A['accept_states']
+    edges = A["edges"]
+    initial_state = A["initial_state"]
+    accept_states = A["accept_states"]
 
     G = edges2G(edges)
     vis = set()
@@ -58,23 +58,21 @@ def DFA_remove_unreachable_states(A):
                 vis.add(v)
                 Q.put(v)
 
-    edges_ = [edge for edge in edges
-        if (edge[0] in vis and edge[1] in vis)]
-    accept_states_ = set([state for state in accept_states
-        if state in vis])
+    edges_ = [edge for edge in edges if (edge[0] in vis and edge[1] in vis)]
+    accept_states_ = set([state for state in accept_states if state in vis])
 
     return {
-        'edges': edges_,
-        'initial_state': initial_state,
-        'accept_states': accept_states_
+        "edges": edges_,
+        "initial_state": initial_state,
+        "accept_states": accept_states_,
     }
 
 
 # light-weight version for DFA_merge_undistinguishable_states
 def DFA_merge_dead_states(A):
-    edges = A['edges']
-    initial_state = A['initial_state']
-    accept_states = A['accept_states']
+    edges = A["edges"]
+    initial_state = A["initial_state"]
+    accept_states = A["accept_states"]
     vocab_size = edges[0][2].shape[0]
 
     G_rev = edges2G(edges, reverse=True)
@@ -112,16 +110,16 @@ def DFA_merge_dead_states(A):
         edges_.append((u, dead_state, G[u]))
 
     return {
-        'edges': edges_,
-        'initial_state': initial_state,
-        'accept_states': accept_states
+        "edges": edges_,
+        "initial_state": initial_state,
+        "accept_states": accept_states,
     }
 
 
-def DFA_merge_undistinguishable_states(A, device='cpu'):
-    edges = A['edges']
-    initial_state = A['initial_state']
-    accept_states = A['accept_states']
+def DFA_merge_undistinguishable_states(A, device="cpu"):
+    edges = A["edges"]
+    initial_state = A["initial_state"]
+    accept_states = A["accept_states"]
     vocab_size = edges[0][2].shape[0]
 
     state2idx, num_states = {}, 0
@@ -175,7 +173,7 @@ def DFA_merge_undistinguishable_states(A, device='cpu'):
         fa_new = np.arange(0, num_states, dtype=int)
         for _, partition in partitions.items():
             for i, u in enumerate(partition):
-                for j in range(i+1, len(partition)):
+                for j in range(i + 1, len(partition)):
                     v = partition[j]
                     if np.array_equal(fa_G[u], fa_G[v]):
                         fu, fv = find(fa_new, u), find(fa_new, v)
@@ -201,9 +199,9 @@ def DFA_merge_undistinguishable_states(A, device='cpu'):
     accept_states_ = set(find(fa, state2idx[state]) for state in accept_states)
 
     return {
-        'edges': edges_,
-        'initial_state': initial_state_,
-        'accept_states': accept_states_,
+        "edges": edges_,
+        "initial_state": initial_state_,
+        "accept_states": accept_states_,
     }
 
 
@@ -215,9 +213,9 @@ def DFA_minimize(A):
 
 
 def DFA_size(A):
-    edge_cnt = len(A['edges'])
+    edge_cnt = len(A["edges"])
     states = set()
-    for edge in A['edges']:
+    for edge in A["edges"]:
         states.add(edge[0])
         states.add(edge[1])
     state_cnt = len(states)
@@ -226,9 +224,9 @@ def DFA_size(A):
 
 
 def DFA_negate(A):
-    edges = A['edges']
-    initial_state = A['initial_state']
-    accept_states = A['accept_states']
+    edges = A["edges"]
+    initial_state = A["initial_state"]
+    accept_states = A["accept_states"]
 
     all_states = set()
     for edge in edges:
@@ -239,9 +237,9 @@ def DFA_negate(A):
     accept_states_ = all_states.difference(accept_states)
 
     return {
-        'edges': edges,
-        'initial_state': initial_state,
-        'accept_states': accept_states_
+        "edges": edges,
+        "initial_state": initial_state,
+        "accept_states": accept_states_,
     }
 
 
@@ -249,25 +247,21 @@ def _rename_states(A, f):
     def apply(x, f):
         return f[x] if x in f else x
 
-    edges_ = [(
-        apply(edge[0], f),
-        apply(edge[1], f),
-        edge[2]
-    ) for edge in A['edges']]
+    edges_ = [(apply(edge[0], f), apply(edge[1], f), edge[2]) for edge in A["edges"]]
 
-    initial_state_ = apply(A['initial_state'], f)
+    initial_state_ = apply(A["initial_state"], f)
 
-    accept_states_ = set([apply(state, f) for state in A['accept_states']])
+    accept_states_ = set([apply(state, f) for state in A["accept_states"]])
 
     return {
-        'edges': edges_,
-        'initial_state': initial_state_,
-        'accept_states': accept_states_,
+        "edges": edges_,
+        "initial_state": initial_state_,
+        "accept_states": accept_states_,
     }
 
 
 def _reindex_states(A, next_idx=0):
-    states = edges2states(A['edges'])
+    states = edges2states(A["edges"])
     f = {}
     for state in states:
         f[state] = next_idx
@@ -278,35 +272,43 @@ def _reindex_states(A, next_idx=0):
 def _copy_state(A, s, count, next_idx=0):
     new_edges = []
     new_states = [s]
-    new_states.extend([next_idx+i for i in range(0, count)])
-    for edge in A['edges']:
+    new_states.extend([next_idx + i for i in range(0, count)])
+    for edge in A["edges"]:
         if edge[0] == s:
-            new_edges.extend([(next_idx+i, edge[1], edge[2]) for i in range(0, count)])
+            new_edges.extend(
+                [(next_idx + i, edge[1], edge[2]) for i in range(0, count)]
+            )
 
-    return {
-        'edges': A['edges'] + new_edges,
-        'initial_state': A['initial_state'],
-        'accept_states': A['accept_states']
-    }, new_states, next_idx+count
+    return (
+        {
+            "edges": A["edges"] + new_edges,
+            "initial_state": A["initial_state"],
+            "accept_states": A["accept_states"],
+        },
+        new_states,
+        next_idx + count,
+    )
 
 
 def DFA_concatenate_binary(A, B):
     A, next_idx = _reindex_states(A, next_idx=0)
     B, next_idx = _reindex_states(B, next_idx=next_idx)
 
-    accept_states_A = list(A['accept_states'])
-    initial_state_B = B['initial_state']
+    accept_states_A = list(A["accept_states"])
+    initial_state_B = B["initial_state"]
 
-    A['edges'] = [edge for edge in A['edges'] if edge[0] not in accept_states_A]
-    B, new_states, _ = _copy_state(B, B['initial_state'], len(accept_states_A)-1, next_idx=next_idx)
-    A = _rename_states(A, {x:y for x,y in zip(accept_states_A, new_states)})
+    A["edges"] = [edge for edge in A["edges"] if edge[0] not in accept_states_A]
+    B, new_states, _ = _copy_state(
+        B, B["initial_state"], len(accept_states_A) - 1, next_idx=next_idx
+    )
+    A = _rename_states(A, {x: y for x, y in zip(accept_states_A, new_states)})
 
-    edges_AB = A['edges'] + B['edges']
+    edges_AB = A["edges"] + B["edges"]
 
     return {
-        'edges': edges_AB,
-        'initial_state': A['initial_state'],
-        'accept_states': B['accept_states'],
+        "edges": edges_AB,
+        "initial_state": A["initial_state"],
+        "accept_states": B["accept_states"],
     }
 
 
@@ -318,13 +320,13 @@ def DFA_concatenate(dfa_graphs):
     return DFA_concatenate_binary(dfa_graphs[0], DFA_concatenate(dfa_graphs[1:]))
 
 
-def DFA_prod_binary(A, B, mode='intersection'):
-    states_A = edges2states(A['edges'])
-    states_B = edges2states(B['edges'])
+def DFA_prod_binary(A, B, mode="intersection"):
+    states_A = edges2states(A["edges"])
+    states_B = edges2states(B["edges"])
     states_AB = [(ua, ub) for ua in states_A for ub in states_B]
 
-    EA = edges2dict(A['edges'])
-    EB = edges2dict(B['edges'])
+    EA = edges2dict(A["edges"])
+    EB = edges2dict(B["edges"])
     edges_AB = []
     for u in states_AB:
         for v in states_AB:
@@ -335,37 +337,50 @@ def DFA_prod_binary(A, B, mode='intersection'):
                 if transition.any():
                     edges_AB.append((u, v, transition))
 
-    assert mode in ['intersection', 'union']
+    assert mode in ["intersection", "union"]
 
-    initial_state_AB = (A['initial_state'], B['initial_state'])
-    if mode == 'intersection':
-        accept_states_AB = set([u for u in states_AB
-            if u[0] in A['accept_states'] and u[1] in B['accept_states']])
-    if mode == 'union':
-        accept_states_AB = set([u for u in states_AB
-            if u[0] in A['accept_states'] or u[1] in B['accept_states']])
+    initial_state_AB = (A["initial_state"], B["initial_state"])
+    if mode == "intersection":
+        accept_states_AB = set(
+            [
+                u
+                for u in states_AB
+                if u[0] in A["accept_states"] and u[1] in B["accept_states"]
+            ]
+        )
+    if mode == "union":
+        accept_states_AB = set(
+            [
+                u
+                for u in states_AB
+                if u[0] in A["accept_states"] or u[1] in B["accept_states"]
+            ]
+        )
 
-    dfa_graph = DFA_minimize({
-        'edges': edges_AB,
-        'initial_state': initial_state_AB,
-        'accept_states': accept_states_AB,
-    })
+    dfa_graph = DFA_minimize(
+        {
+            "edges": edges_AB,
+            "initial_state": initial_state_AB,
+            "accept_states": accept_states_AB,
+        }
+    )
 
     return dfa_graph
 
 
-def DFA_prod(dfa_graphs, mode='intersection'):
+def DFA_prod(dfa_graphs, mode="intersection"):
     if dfa_graphs == []:
         return []
     if len(dfa_graphs) == 1:
         return dfa_graphs[0]
-    return DFA_prod_binary(dfa_graphs[0], DFA_prod(dfa_graphs[1:], mode=mode), mode=mode)
+    return DFA_prod_binary(
+        dfa_graphs[0], DFA_prod(dfa_graphs[1:], mode=mode), mode=mode
+    )
 
 
 class KMPBuilder:
     def __init__(self, vocab_size):
         self.vocab_size = vocab_size
-
 
     def build(self, pat):
 
@@ -400,7 +415,7 @@ class KMPBuilder:
                 if token == pat[u]:
                     v = u + 1
                 else:
-                    v = 0 if u == 0 else compute_lps_i(pat, lps, lps[u-1], token)
+                    v = 0 if u == 0 else compute_lps_i(pat, lps, lps[u - 1], token)
 
                 if (u, v) not in E:
                     E[(u, v)] = np.zeros((self.vocab_size,), dtype=bool)
@@ -422,9 +437,9 @@ class KMPBuilder:
         accept_states = set([len(pat)])
 
         return {
-            'edges': edges,
-            'initial_state': initial_state,
-            'accept_states': accept_states
+            "edges": edges,
+            "initial_state": initial_state,
+            "accept_states": accept_states,
         }
 
 
@@ -433,23 +448,24 @@ class AhoCorasickBuilder:
         self.vocab_set = np.ones((vocab_size,), dtype=bool)
         self.vocab_size = vocab_size
 
-
     def remove_redundant_patterns(self, patterns):
         vis = set()
-        patterns = set(','.join(str(x) for x in pattern) for pattern in patterns)
+        patterns = set(",".join(str(x) for x in pattern) for pattern in patterns)
         patterns = list(patterns)
 
         for i, a in enumerate(patterns):
-            for j in range(i+1, len(patterns)):
+            for j in range(i + 1, len(patterns)):
                 b = patterns[j]
                 if a.find(b) != -1:
                     vis.add(a)
                 if b.find(a) != -1:
                     vis.add(b)
 
-        return [[int(x) for x in pattern.split(',')]
-            for pattern in patterns if pattern not in vis]
-
+        return [
+            [int(x) for x in pattern.split(",")]
+            for pattern in patterns
+            if pattern not in vis
+        ]
 
     def build(self, patterns):
         vocab_size = self.vocab_size
@@ -473,7 +489,7 @@ class AhoCorasickBuilder:
 
         # augment T to be Aho-Corasick automaton
         Q = Queue()
-        fail = {tuple():tuple()}
+        fail = {tuple(): tuple()}
         for _, v in T[tuple()].items():
             Q.put(v)
         while not Q.empty():
@@ -481,7 +497,9 @@ class AhoCorasickBuilder:
             for token in candidate_tokens:
                 if token in T[u]:
                     fail_u = fail[u] if u in fail else tuple()
-                    fail[T[u][token]] = T[fail_u][token] if token in T[fail_u] else tuple()
+                    fail[T[u][token]] = (
+                        T[fail_u][token] if token in T[fail_u] else tuple()
+                    )
                     Q.put(T[u][token])
                 else:
                     fail_u = fail[u] if u in fail else tuple()
@@ -505,29 +523,30 @@ class AhoCorasickBuilder:
 
         edges = [(k[0], k[1], v) for k, v in trans.items()]
         for pattern in patterns_set:
-            edges.append((pattern, pattern, np.ones((vocab_size,), dtype=bool))) # add self-loops for leaf nodes
+            edges.append(
+                (pattern, pattern, np.ones((vocab_size,), dtype=bool))
+            )  # add self-loops for leaf nodes
 
         return {
-            'edges': edges,
-            'initial_state': tuple(),
-            'accept_states': patterns_set,
+            "edges": edges,
+            "initial_state": tuple(),
+            "accept_states": patterns_set,
         }
 
 
 # A placeholder DFA that enforce no constraints
 class TrivialBuilder:
-    def __init__(self, tokenizer, vocab_size,
-            eos_token_id=2):
+    def __init__(self, tokenizer, vocab_size, eos_token_id=2):
 
-        vocab_set = np.ones((vocab_size,), dtype=bool) # set([x for x in range(0, vocab_size)])
+        vocab_set = np.ones(
+            (vocab_size,), dtype=bool
+        )  # set([x for x in range(0, vocab_size)])
 
         self.dfa_graph = {
-            'edges': [(0, 1, vocab_set),
-                        (1, 0, vocab_set)],
-            'initial_state': 0,
-            'accept_states': set([0, 1]),
+            "edges": [(0, 1, vocab_set), (1, 0, vocab_set)],
+            "initial_state": 0,
+            "accept_states": set([0, 1]),
         }
-
 
     def build(self):
         return self.dfa_graph
@@ -541,15 +560,16 @@ class EOSBuilder:
         others = ~eos
 
         self.dfa_graph = {
-            'edges': [(0, 1, eos),
-                    (0, 0, others),
-                    (1, 1, eos),
-                    (1, 2, others),
-                    (2, 2, vocab_set)],
-            'initial_state': 0,
-            'accept_states': set([0, 1]),
+            "edges": [
+                (0, 1, eos),
+                (0, 0, others),
+                (1, 1, eos),
+                (1, 2, others),
+                (2, 2, vocab_set),
+            ],
+            "initial_state": 0,
+            "accept_states": set([0, 1]),
         }
-
 
     def build(self):
         return self.dfa_graph
@@ -560,9 +580,13 @@ class EOSBuilder:
 # seperatred by a character from the sep list. If it does not work as you expected,
 # implement your custom WordCountBuilder with this implementation as a reference.
 class WordCountBuilder:
-    def __init__(self, tokenizer, vocab_size, sep=[' ', '\n', ',', '.', ':', ';', '\"', '/']):
+    def __init__(
+        self, tokenizer, vocab_size, sep=[" ", "\n", ",", ".", ":", ";", '"', "/"]
+    ):
         all_special_ids = set(tokenizer.all_special_ids)
-        vocab00, vocab01, vocab10, vocab11 = [np.zeros((vocab_size,), dtype=bool) for _ in range(0, 4)]
+        vocab00, vocab01, vocab10, vocab11 = [
+            np.zeros((vocab_size,), dtype=bool) for _ in range(0, 4)
+        ]
         for token_id in range(0, vocab_size):
             if token_id in all_special_ids:
                 vocab00[token_id] = 1
@@ -573,7 +597,7 @@ class WordCountBuilder:
             # be using tokenizer.decode(token_id) to convert each token_id to text,
             # but the Llama2 tokenizer automatically removes the leading spaces.
             token = tokenizer.decode([tokenizer.all_special_ids[0], token_id])
-            token = token[len(tokenizer.decode(tokenizer.all_special_ids[0])):]
+            token = token[len(tokenizer.decode(tokenizer.all_special_ids[0])) :]
 
             if token[0] in sep:
                 if any([c.isalpha() or c.isdigit() for c in token]):
@@ -593,11 +617,12 @@ class WordCountBuilder:
         self.vocab11 = vocab11
         self.vocab_set = np.ones((vocab_size,), dtype=bool)
 
-
     def build(self, min_word_count, max_word_count):
         states = []
-        states.extend([(k, s) for k in range(0, max_word_count+1) for s in range(0, 2)])
-        states.append((max_word_count+1, 0))
+        states.extend(
+            [(k, s) for k in range(0, max_word_count + 1) for s in range(0, 2)]
+        )
+        states.append((max_word_count + 1, 0))
 
         E = {}
         for u in states:
@@ -606,10 +631,10 @@ class WordCountBuilder:
                 if s == 0:
                     E[(u, u)] = self.vocab0x
                     E[(u, (k, 1))] = self.vocab10
-                    E[(u, (k+1, 0))] = self.vocab11
+                    E[(u, (k + 1, 0))] = self.vocab11
                 if s == 1:
                     E[(u, u)] = self.vocabx0
-                    E[(u, (k+1, 0))] = self.vocabx1
+                    E[(u, (k + 1, 0))] = self.vocabx1
             else:
                 E[(u, u)] = self.vocab_set
 
@@ -619,12 +644,16 @@ class WordCountBuilder:
             edges.append((u, v, transition))
 
         initial_state = (0, 1)
-        accept_states = [(k, s) for k in range(min_word_count, max_word_count+1) for s in range(0, 2)]
+        accept_states = [
+            (k, s)
+            for k in range(min_word_count, max_word_count + 1)
+            for s in range(0, 2)
+        ]
 
         return {
-            'edges': edges,
-            'initial_state': initial_state,
-            'accept_states': accept_states,
+            "edges": edges,
+            "initial_state": initial_state,
+            "accept_states": accept_states,
         }
 
 
@@ -632,9 +661,9 @@ class DFAModel(nn.Module):
     def __init__(self, dfa_graph, vocab_size):
         super().__init__()
 
-        edges = dfa_graph['edges']
-        initial_state = dfa_graph['initial_state']
-        accept_states = dfa_graph['accept_states']
+        edges = dfa_graph["edges"]
+        initial_state = dfa_graph["initial_state"]
+        accept_states = dfa_graph["accept_states"]
 
         state_cnt, edge_cnt = 0, 0
         state2idx, edge2idx = {}, {}
@@ -651,7 +680,7 @@ class DFAModel(nn.Module):
                 edge2idx[(u_idx, v_idx)] = edge_cnt
                 edge_cnt += 1
             else:
-                print('ERROR: duplicate edge!')
+                print("ERROR: duplicate edge!")
                 exit(1)
 
         G = {}
@@ -661,7 +690,7 @@ class DFAModel(nn.Module):
         E2Src = torch.tensor([0] * edge_cnt)
         E2Dst = torch.tensor([0] * edge_cnt)
         for e in edges:
-            u, v, transition = e    # transition should be a bitset of tokens
+            u, v, transition = e  # transition should be a bitset of tokens
             u_idx, v_idx = state2idx[u], state2idx[v]
             edge_idx = edge2idx[(u_idx, v_idx)]
             VE_mask[u_idx, edge_idx] = 1.0
@@ -674,7 +703,6 @@ class DFAModel(nn.Module):
                 G[u_idx] = []
             G[u_idx].append((v_idx, transition))
 
-
         self.VE_mask = nn.Parameter(VE_mask, requires_grad=False)
         self.EV_mask = nn.Parameter(EV_mask, requires_grad=False)
         self.T_mask = nn.Parameter(T_mask, requires_grad=False)
@@ -686,15 +714,13 @@ class DFAModel(nn.Module):
         self.initial_state = state2idx[initial_state]
         self.accept_states = set([state2idx[x] for x in accept_states])
 
-
     def next_state(self, state, token):
         for e in self.G[state]:
             v, transition_set = e
             if transition_set[token]:
                 return v
-        print(f'ERROR: no valid transition! {state} {token}')
+        print(f"ERROR: no valid transition! {state} {token}")
         exit(1)
-
 
     def is_accept(self, state):
         return state in self.accept_states

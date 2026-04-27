@@ -19,6 +19,7 @@ except ImportError:
     print("❌ transformers not installed. Run: pip install transformers[sentencepiece]")
     sys.exit(1)
 
+
 def score_text_attribute(text: str, attribute: str, classifier) -> float:
     """
     Score text for a specific attribute using zero-shot classification.
@@ -36,9 +37,11 @@ def score_text_attribute(text: str, attribute: str, classifier) -> float:
     hypothesis_template = "This text is about {}"
 
     try:
-        result = classifier(text, classes, hypothesis_template=hypothesis_template, multi_label=False)
+        result = classifier(
+            text, classes, hypothesis_template=hypothesis_template, multi_label=False
+        )
         # Return score for the target attribute
-        for label, score in zip(result['labels'], result['scores']):
+        for label, score in zip(result["labels"], result["scores"]):
             if label == attribute:
                 return score
         return 0.0
@@ -46,20 +49,44 @@ def score_text_attribute(text: str, attribute: str, classifier) -> float:
         print(f"Warning: Classification failed for text: {text[:50]}... Error: {e}")
         return 0.0
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Score custom attribute on RTP training data")
-    parser.add_argument("--attribute", type=str, required=True,
-                       help="Target attribute to score (e.g., 'politics', 'sports', 'emotion')")
-    parser.add_argument("--input_path", type=str, default="data/RTP_train.jsonl",
-                       help="Input JSONL file path")
-    parser.add_argument("--output_path", type=str, default=None,
-                       help="Output JSONL file path (default: data/RTP_train_{attribute}.jsonl)")
-    parser.add_argument("--model", type=str, default="MoritzLaurer/deberta-v3-large-zeroshot-v2.0",
-                       help="Zero-shot classification model")
-    parser.add_argument("--batch_size", type=int, default=1,
-                       help="Batch size for processing")
-    parser.add_argument("--max_samples", type=int, default=None,
-                       help="Maximum samples to process (for testing)")
+    parser = argparse.ArgumentParser(
+        description="Score custom attribute on RTP training data"
+    )
+    parser.add_argument(
+        "--attribute",
+        type=str,
+        required=True,
+        help="Target attribute to score (e.g., 'politics', 'sports', 'emotion')",
+    )
+    parser.add_argument(
+        "--input_path",
+        type=str,
+        default="data/RTP_train.jsonl",
+        help="Input JSONL file path",
+    )
+    parser.add_argument(
+        "--output_path",
+        type=str,
+        default=None,
+        help="Output JSONL file path (default: data/RTP_train_{attribute}.jsonl)",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="MoritzLaurer/deberta-v3-large-zeroshot-v2.0",
+        help="Zero-shot classification model",
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=1, help="Batch size for processing"
+    )
+    parser.add_argument(
+        "--max_samples",
+        type=int,
+        default=None,
+        help="Maximum samples to process (for testing)",
+    )
 
     args = parser.parse_args()
 
@@ -70,7 +97,9 @@ def main():
     # Check input file exists
     if not os.path.exists(args.input_path):
         print(f"❌ Input file not found: {args.input_path}")
-        print("💡 Download with: wget https://github.com/yidouweng/trace/releases/download/v1.0.0/RTP_train.jsonl.tar.gz -P data/ && cd data && tar -xzf RTP_train.jsonl.tar.gz")
+        print(
+            "💡 Download with: wget https://github.com/yidouweng/trace/releases/download/v1.0.0/RTP_train.jsonl.tar.gz -P data/ && cd data && tar -xzf RTP_train.jsonl.tar.gz"
+        )
         sys.exit(1)
 
     print(f"🔍 Scoring attribute: '{args.attribute}'")
@@ -91,8 +120,10 @@ def main():
     print("Processing data...")
     processed_count = 0
 
-    with open(args.input_path, 'r', encoding='utf-8') as infile, \
-         open(args.output_path, 'w', encoding='utf-8') as outfile:
+    with (
+        open(args.input_path, "r", encoding="utf-8") as infile,
+        open(args.output_path, "w", encoding="utf-8") as outfile,
+    ):
 
         for line_num, line in enumerate(tqdm(infile, desc="Scoring"), 1):
             if args.max_samples and processed_count >= args.max_samples:
@@ -102,26 +133,30 @@ def main():
                 record = json.loads(line.strip())
 
                 # Score prompt and continuation for the custom attribute
-                prompt_text = record['prompt']['text']
-                continuation_text = record['continuation']['text']
+                prompt_text = record["prompt"]["text"]
+                continuation_text = record["continuation"]["text"]
 
-                prompt_score = score_text_attribute(prompt_text, args.attribute, classifier)
-                continuation_score = score_text_attribute(continuation_text, args.attribute, classifier)
+                prompt_score = score_text_attribute(
+                    prompt_text, args.attribute, classifier
+                )
+                continuation_score = score_text_attribute(
+                    continuation_text, args.attribute, classifier
+                )
 
                 # Create new record with custom attribute scores (same format as toxicity)
                 new_record = {
                     "filename": record.get("filename", f"custom_{line_num}"),
                     "prompt": {
                         "text": prompt_text,
-                        args.attribute: prompt_score  # Replace 'toxicity' with custom attribute
+                        args.attribute: prompt_score,  # Replace 'toxicity' with custom attribute
                     },
                     "continuation": {
                         "text": continuation_text,
-                        args.attribute: continuation_score  # Replace 'toxicity' with custom attribute
-                    }
+                        args.attribute: continuation_score,  # Replace 'toxicity' with custom attribute
+                    },
                 }
 
-                outfile.write(json.dumps(new_record) + '\n')
+                outfile.write(json.dumps(new_record) + "\n")
                 processed_count += 1
 
             except Exception as e:
@@ -132,8 +167,13 @@ def main():
     print(f"📄 Output saved to: {args.output_path}")
     print()
     print("🔧 Next steps:")
-    print(f"   1. Train classifier: python src/fit.py --data_path {args.output_path} --attribute {args.attribute}")
-    print(f"   2. Use in generation: python src/generate.py --weights_path data/coefficients_{args.attribute}.csv")
+    print(
+        f"   1. Train classifier: python src/fit.py --data_path {args.output_path} --attribute {args.attribute}"
+    )
+    print(
+        f"   2. Use in generation: python src/generate.py --weights_path data/coefficients_{args.attribute}.csv"
+    )
+
 
 if __name__ == "__main__":
     main()

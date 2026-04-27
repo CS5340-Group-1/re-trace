@@ -30,11 +30,15 @@ if (src_dir / "model.safetensors").exists():
 elif (src_dir / "pytorch_model.bin").exists():
     state = torch.load(src_dir / "pytorch_model.bin", map_location="cpu")
 else:
-    raise FileNotFoundError(f"No model.safetensors or pytorch_model.bin found in {src_dir}")
+    raise FileNotFoundError(
+        f"No model.safetensors or pytorch_model.bin found in {src_dir}"
+    )
 
 # Build TRACE SOHMM
 # Note: SOHMM uses (hidden_size, vocab_size, eos_token_id) in __init__
-trace_sohmm = TraceSOHMM(hidden_size=hidden_size, vocab_size=vocab_size, eos_token_id=eos_token_id)
+trace_sohmm = TraceSOHMM(
+    hidden_size=hidden_size, vocab_size=vocab_size, eos_token_id=eos_token_id
+)
 
 # Map compatible parameters
 with torch.no_grad():

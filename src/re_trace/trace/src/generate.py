@@ -22,25 +22,67 @@ from src import utils
 from src.hmm import HMM
 from src.logits_processor import HmmGuidedLogitsProcessor
 
+
 def set_seed(seed: int, n_gpu: int):
     """Set random seed for reproducibility across PyTorch and CUDA."""
     torch.manual_seed(seed)
     if n_gpu > 0:
         torch.cuda.manual_seed_all(seed)
 
+
 def main():
     # Parse arguments
     parser = argparse.ArgumentParser(description="HMM-guided text generation.")
-    parser.add_argument("--model_path", type=str, default="gpt2-large", help="HF model name/path for generation")
-    parser.add_argument("--hmm_model_path", type=str, default="models/hmm_gpt2-large_uncon_seq-len-32_4096_10M", help="Path to the trained HMM directory")
-    parser.add_argument("--prompts_path", type=str, default="data/prompts.jsonl", help="Prompt file (JSONL)")
-    parser.add_argument("--weights_path", type=str, default="data/coefficients.csv", help="Path to weights CSV file")
-    parser.add_argument("--a", type=float, default=1.0, help="Strength of HMM guidance, often 0~2.0. 0 is no guidance, 1 is default.")
-    parser.add_argument("--baseline", action="store_true", help="Generate baseline (no HMM guidance) alongside TRACE")
-    parser.add_argument("--max_len", type=int, default=20, help="Max new tokens to generate")
-    parser.add_argument("--num_generations", type=int, default=25, help="Generations per prompt")
-    parser.add_argument("--generation_batch_size", type=int, default=5, help="Sequences per HF generate call")
-    parser.add_argument("--prompt_batch_size", type=int, default=1, help="Prompts processed together")
+    parser.add_argument(
+        "--model_path",
+        type=str,
+        default="gpt2-large",
+        help="HF model name/path for generation",
+    )
+    parser.add_argument(
+        "--hmm_model_path",
+        type=str,
+        default="models/hmm_gpt2-large_uncon_seq-len-32_4096_10M",
+        help="Path to the trained HMM directory",
+    )
+    parser.add_argument(
+        "--prompts_path",
+        type=str,
+        default="data/prompts.jsonl",
+        help="Prompt file (JSONL)",
+    )
+    parser.add_argument(
+        "--weights_path",
+        type=str,
+        default="data/coefficients.csv",
+        help="Path to weights CSV file",
+    )
+    parser.add_argument(
+        "--a",
+        type=float,
+        default=1.0,
+        help="Strength of HMM guidance, often 0~2.0. 0 is no guidance, 1 is default.",
+    )
+    parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="Generate baseline (no HMM guidance) alongside TRACE",
+    )
+    parser.add_argument(
+        "--max_len", type=int, default=20, help="Max new tokens to generate"
+    )
+    parser.add_argument(
+        "--num_generations", type=int, default=25, help="Generations per prompt"
+    )
+    parser.add_argument(
+        "--generation_batch_size",
+        type=int,
+        default=5,
+        help="Sequences per HF generate call",
+    )
+    parser.add_argument(
+        "--prompt_batch_size", type=int, default=1, help="Prompts processed together"
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", type=str, default=None)
 
@@ -53,18 +95,20 @@ def main():
     # Derive output CSV path relative to project root
     if args.baseline:
         output_path = os.path.join(
-            PROJECT_ROOT,
-            f"results/comparison_a{args.a}_generated.csv"
+            PROJECT_ROOT, f"results/comparison_a{args.a}_generated.csv"
         )
     else:
         output_path = os.path.join(
-            PROJECT_ROOT,
-            f"results/detox_a{args.a}_generated.csv"
+            PROJECT_ROOT, f"results/detox_a{args.a}_generated.csv"
         )
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     # Setup device and seed
-    device = torch.device(args.device) if args.device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = (
+        torch.device(args.device)
+        if args.device
+        else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    )
     print(f"Using device: {device}")
     set_seed(args.seed, torch.cuda.device_count())
 
@@ -124,7 +168,9 @@ def main():
     file_exists = os.path.exists(output_path)
 
     # Process prompts in batches for memory efficiency
-    for batch_start in tqdm(range(0, len(prompts), args.prompt_batch_size), desc="Generating"):
+    for batch_start in tqdm(
+        range(0, len(prompts), args.prompt_batch_size), desc="Generating"
+    ):
         # Extract current batch of prompts
         batch_info = prompts[batch_start : batch_start + args.prompt_batch_size]
         if not batch_info:
@@ -137,14 +183,16 @@ def main():
         #
         # Truncate prompts if they would exceed model's context window
         max_model_len = getattr(gen_model.config, "max_position_embeddings", 512)
-        max_prompt_len = max(max_model_len - args.max_len - 10, 10)  # Reserve space for generation + safety margin
+        max_prompt_len = max(
+            max_model_len - args.max_len - 10, 10
+        )  # Reserve space for generation + safety margin
 
         # Batch tokenize all prompts in current batch
         inputs = gen_tokenizer.batch_encode_plus(
             prompt_texts,
             return_tensors="pt",
-            padding=True,          # Pad shorter prompts to same length
-            truncation=True,       # Truncate longer prompts
+            padding=True,  # Pad shorter prompts to same length
+            truncation=True,  # Truncate longer prompts
             max_length=max_prompt_len,
         )
         prompt_ids = inputs.input_ids.to(device)
@@ -159,7 +207,9 @@ def main():
         #
         # Initialize storage for all continuations for this batch
         batch_continuations: Dict[int, List[str]] = {idx: [] for idx, _ in batch_info}
-        baseline_continuations: Dict[int, List[str]] = {idx: [] for idx, _ in batch_info} if args.baseline else None
+        baseline_continuations: Dict[int, List[str]] = (
+            {idx: [] for idx, _ in batch_info} if args.baseline else None
+        )
 
         # Generate in smaller sub-batches if num_generations > generation_batch_size
         loops = math.ceil(args.num_generations / args.generation_batch_size)
@@ -177,8 +227,12 @@ def main():
             # by num_return_sequences. We need to reconfigure the HMM processor for this expanded batch.
             if hmm_processor and num_to_generate > 1:
                 # Expand prompt_ids to match the expected batch size that HuggingFace will create
-                expanded_prompt_ids = prompt_ids.repeat_interleave(num_to_generate, dim=0)
-                expanded_attention_mask = attention_mask.repeat_interleave(num_to_generate, dim=0)
+                expanded_prompt_ids = prompt_ids.repeat_interleave(
+                    num_to_generate, dim=0
+                )
+                expanded_attention_mask = attention_mask.repeat_interleave(
+                    num_to_generate, dim=0
+                )
                 hmm_processor.configure_for_prompts(expanded_prompt_ids)
                 # Use original tensors for generation - HuggingFace will expand them internally
                 input_ids_for_generation = prompt_ids
@@ -190,20 +244,24 @@ def main():
                 # HMM processor already configured for original batch
 
             # Prepare logits processor list
-            logits_processors = LogitsProcessorList([hmm_processor]) if hmm_processor else LogitsProcessorList([])
+            logits_processors = (
+                LogitsProcessorList([hmm_processor])
+                if hmm_processor
+                else LogitsProcessorList([])
+            )
 
             # Generate sequences with or without HMM guidance
             with torch.no_grad():
                 gen_seqs = gen_model.generate(
                     input_ids=input_ids_for_generation,
                     attention_mask=attention_mask_for_generation,
-                    logits_processor=logits_processors,                     # Apply HMM guidance if available
-                    max_new_tokens=args.max_len,                           # Limit new tokens generated
-                    num_return_sequences=num_to_generate,                   # Multiple completions per prompt
-                    do_sample=True,                                         # Enable sampling
-                    top_p=0.9,                                             # Nucleus sampling
-                    top_k=0,                                               # No top-k filtering
-                    temperature=1.0,                                        # Standard temperature
+                    logits_processor=logits_processors,  # Apply HMM guidance if available
+                    max_new_tokens=args.max_len,  # Limit new tokens generated
+                    num_return_sequences=num_to_generate,  # Multiple completions per prompt
+                    do_sample=True,  # Enable sampling
+                    top_p=0.9,  # Nucleus sampling
+                    top_k=0,  # No top-k filtering
+                    temperature=1.0,  # Standard temperature
                     pad_token_id=gen_tokenizer.pad_token_id,
                     eos_token_id=gen_tokenizer.eos_token_id,
                 )
@@ -220,21 +278,25 @@ def main():
                 # Extract continuations for this prompt
                 for k in range(num_to_generate):
                     # Calculate the index in the expanded generation results
-                    seq_idx = b_idx * num_to_generate + k  # Index in generated sequences
+                    seq_idx = (
+                        b_idx * num_to_generate + k
+                    )  # Index in generated sequences
                     cont_ids = gen_seqs[seq_idx][prompt_len:]  # Extract only new tokens
 
                     # Decode tokens back to text
                     cont_text = gen_tokenizer.decode(
                         cont_ids,
                         skip_special_tokens=True,
-                        clean_up_tokenization_spaces=True
+                        clean_up_tokenization_spaces=True,
                     )
                     batch_continuations[orig_idx].append(cont_text)
 
         #
         # GENERATE BASELINE CONTINUATIONS (if comparison mode)
         #
-        if args.baseline and hmm_processor:  # Comparison mode: generate baseline alongside TRACE
+        if (
+            args.baseline and hmm_processor
+        ):  # Comparison mode: generate baseline alongside TRACE
             for loop_idx in range(loops):
                 num_to_generate = min(
                     args.generation_batch_size,
@@ -267,7 +329,7 @@ def main():
                         cont_text = gen_tokenizer.decode(
                             cont_ids,
                             skip_special_tokens=True,
-                            clean_up_tokenization_spaces=True
+                            clean_up_tokenization_spaces=True,
                         )
                         baseline_continuations[orig_idx].append(cont_text)
 
@@ -279,24 +341,34 @@ def main():
         for orig_idx, prompt_text in batch_info:
             row: Dict = {"index": orig_idx, "prefix": prompt_text}
 
-            if args.baseline and hmm_processor:  # Comparison mode: include both TRACE and baseline
+            if (
+                args.baseline and hmm_processor
+            ):  # Comparison mode: include both TRACE and baseline
                 # Add TRACE generations
-                for i, cont in enumerate(batch_continuations[orig_idx][: args.num_generations]):
+                for i, cont in enumerate(
+                    batch_continuations[orig_idx][: args.num_generations]
+                ):
                     row[f"trace_gen_{i + 1}"] = json.dumps({"continuation": cont})
                 # Add baseline generations
-                for i, cont in enumerate(baseline_continuations[orig_idx][: args.num_generations]):
+                for i, cont in enumerate(
+                    baseline_continuations[orig_idx][: args.num_generations]
+                ):
                     row[f"baseline_gen_{i + 1}"] = json.dumps({"continuation": cont})
             else:  # Single mode: just the generated continuations
-                for i, cont in enumerate(batch_continuations[orig_idx][: args.num_generations]):
+                for i, cont in enumerate(
+                    batch_continuations[orig_idx][: args.num_generations]
+                ):
                     mode_prefix = "baseline" if not hmm_processor else "trace"
-                    row[f"{mode_prefix}_gen_{i + 1}"] = json.dumps({"continuation": cont})
+                    row[f"{mode_prefix}_gen_{i + 1}"] = json.dumps(
+                        {"continuation": cont}
+                    )
             batch_rows.append(row)
 
         # Append batch results to output file
         pd.DataFrame(batch_rows).to_csv(
             output_path,
-            mode="a",                    # Append mode
-            header=not file_exists,      # Write header only for first batch
+            mode="a",  # Append mode
+            header=not file_exists,  # Write header only for first batch
             index=False,
         )
         file_exists = True  # After first write, file exists

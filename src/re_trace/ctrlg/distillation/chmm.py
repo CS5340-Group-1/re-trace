@@ -126,14 +126,20 @@ class SparseTransitionTable(nn.Module):
         )
 
         self.block_specs = specs
-        self.outgoing_block_ids = self._build_outgoing_lists(len(clones_per_token), specs)
-        self.incoming_block_ids = self._build_incoming_lists(len(clones_per_token), specs)
+        self.outgoing_block_ids = self._build_outgoing_lists(
+            len(clones_per_token), specs
+        )
+        self.incoming_block_ids = self._build_incoming_lists(
+            len(clones_per_token), specs
+        )
 
     def block_index_for_pair_code(self, pair_code: int) -> int | None:
         if self.pair_codes.numel() == 0:
             return None
 
-        query = torch.tensor([pair_code], device=self.pair_codes.device, dtype=self.pair_codes.dtype)
+        query = torch.tensor(
+            [pair_code], device=self.pair_codes.device, dtype=self.pair_codes.dtype
+        )
         position = int(torch.searchsorted(self.pair_codes, query).item())
         if position >= int(self.pair_codes.numel()):
             return None
@@ -171,7 +177,9 @@ class SparseTransitionTable(nn.Module):
             return pair_codes
 
         pair_codes = torch.unique(pair_codes, sorted=True)
-        if torch.any(pair_codes < 0) or torch.any(pair_codes >= vocab_size * vocab_size):
+        if torch.any(pair_codes < 0) or torch.any(
+            pair_codes >= vocab_size * vocab_size
+        ):
             raise ValueError("pair_codes contains an out-of-range token pair.")
         return pair_codes
 
@@ -212,14 +220,18 @@ class SparseTransitionTable(nn.Module):
         return specs
 
     @staticmethod
-    def _build_outgoing_lists(vocab_size: int, specs: Sequence[BlockSpec]) -> list[list[int]]:
+    def _build_outgoing_lists(
+        vocab_size: int, specs: Sequence[BlockSpec]
+    ) -> list[list[int]]:
         outgoing = [[] for _ in range(vocab_size)]
         for idx, spec in enumerate(specs):
             outgoing[spec.src_token].append(idx)
         return outgoing
 
     @staticmethod
-    def _build_incoming_lists(vocab_size: int, specs: Sequence[BlockSpec]) -> list[list[int]]:
+    def _build_incoming_lists(
+        vocab_size: int, specs: Sequence[BlockSpec]
+    ) -> list[list[int]]:
         incoming = [[] for _ in range(vocab_size)]
         for idx, spec in enumerate(specs):
             incoming[spec.dst_token].append(idx)
@@ -256,7 +268,9 @@ class SparseTransitionTable(nn.Module):
         return values
 
     def block_view(self, flat_values: torch.Tensor, spec: BlockSpec) -> torch.Tensor:
-        return flat_values[spec.value_start : spec.value_stop].view(spec.src_size, spec.dst_size)
+        return flat_values[spec.value_start : spec.value_stop].view(
+            spec.src_size, spec.dst_size
+        )
 
     def block(self, block_idx: int) -> torch.Tensor:
         return self.block_view(self.transition_values, self.block_specs[block_idx])
@@ -313,13 +327,17 @@ class SparseTransitionTable(nn.Module):
                     src_size * dst_size,
                     device=self.transition_values.device,
                 )
-                block_counts = transition_counts[value_offsets].view(-1, src_size, dst_size)
+                block_counts = transition_counts[value_offsets].view(
+                    -1, src_size, dst_size
+                )
                 row_counts = block_counts.sum(dim=2)
                 row_offsets = self.block_src_start[block_ids, None] + torch.arange(
                     src_size,
                     device=self.transition_values.device,
                 )
-                row_totals.index_add_(0, row_offsets.reshape(-1), row_counts.reshape(-1))
+                row_totals.index_add_(
+                    0, row_offsets.reshape(-1), row_counts.reshape(-1)
+                )
 
         denom = row_totals + float(pseudocount) * hidden_states
         valid_rows = denom > 0.0
@@ -335,13 +353,17 @@ class SparseTransitionTable(nn.Module):
                     src_size * dst_size,
                     device=self.transition_values.device,
                 )
-                block_counts = transition_counts[value_offsets].view(-1, src_size, dst_size)
+                block_counts = transition_counts[value_offsets].view(
+                    -1, src_size, dst_size
+                )
                 row_offsets = self.block_src_start[block_ids, None] + torch.arange(
                     src_size,
                     device=self.transition_values.device,
                 )
                 block_denom = safe_denom[row_offsets].unsqueeze(-1)
-                new_values[value_offsets.reshape(-1)] = (block_counts / block_denom).reshape(-1)
+                new_values[value_offsets.reshape(-1)] = (
+                    block_counts / block_denom
+                ).reshape(-1)
 
         floor = torch.zeros_like(row_totals)
         if pseudocount > 0.0:
@@ -375,7 +397,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         eos_token_id: int,
         clones_per_token: list[int] | torch.Tensor,
         *,
-        pair_codes: torch.Tensor | Sequence[int] | Sequence[tuple[int, int]] | None = None,
+        pair_codes: (
+            torch.Tensor | Sequence[int] | Sequence[tuple[int, int]] | None
+        ) = None,
         dtype: torch.dtype = torch.float32,
         init_random: bool = True,
     ) -> None:
@@ -393,11 +417,15 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         self.register_buffer("clones_per_token", clones_per_token)
         self.register_buffer(
             "clone_to_token",
-            torch.repeat_interleave(torch.arange(vocab_size, dtype=torch.long), clones_per_token),
+            torch.repeat_interleave(
+                torch.arange(vocab_size, dtype=torch.long), clones_per_token
+            ),
         )
         self.register_buffer("state_offsets", state_offsets)
         self.register_buffer("gamma", gamma)
-        self.register_buffer("transition_floor", torch.zeros(hidden_states, dtype=dtype))
+        self.register_buffer(
+            "transition_floor", torch.zeros(hidden_states, dtype=dtype)
+        )
 
         self.transitions = SparseTransitionTable(
             clones_per_token=clones_per_token,
@@ -410,7 +438,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         self.vocab_size = vocab_size
         self.eos_token_id = eos_token_id
         self.max_clones = int(clones_per_token.max().item())
-        self.clone_size_values = sorted({int(size) for size in clones_per_token.tolist()})
+        self.clone_size_values = sorted(
+            {int(size) for size in clones_per_token.tolist()}
+        )
 
     @property
     def device(self) -> torch.device:
@@ -451,15 +481,21 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
             json.dump(payload["config"], fout, indent=2)
 
     @classmethod
-    def from_pretrained(cls, model_path: str | Path, map_location: str | torch.device | None = None) -> "CHMM":
+    def from_pretrained(
+        cls, model_path: str | Path, map_location: str | torch.device | None = None
+    ) -> "CHMM":
         model_path = Path(model_path)
-        payload = torch.load(model_path / "model.pt", map_location="cpu", weights_only=True)
+        payload = torch.load(
+            model_path / "model.pt", map_location="cpu", weights_only=True
+        )
 
         pair_codes = payload.get("pair_codes")
         if pair_codes is None and "alpha_exp" in payload:
             pair_codes = cls._pair_codes_from_dense(
                 alpha_exp=payload["alpha_exp"],
-                clones_per_token=torch.tensor(payload["config"]["clones_per_token"], dtype=torch.long),
+                clones_per_token=torch.tensor(
+                    payload["config"]["clones_per_token"], dtype=torch.long
+                ),
                 vocab_size=payload["config"]["vocab_size"],
             )
 
@@ -478,7 +514,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
             model.update_params(payload["alpha_exp"], payload["gamma"])
 
         if "transition_floor" in payload:
-            model.transition_floor.copy_(payload["transition_floor"].to(dtype=model.gamma.dtype))
+            model.transition_floor.copy_(
+                payload["transition_floor"].to(dtype=model.gamma.dtype)
+            )
 
         if map_location is not None:
             model = model.to(map_location)
@@ -495,8 +533,12 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         pair_codes = []
         for src_token in range(vocab_size):
             for dst_token in range(vocab_size):
-                src_slice = slice(int(state_offsets[src_token]), int(state_offsets[src_token + 1]))
-                dst_slice = slice(int(state_offsets[dst_token]), int(state_offsets[dst_token + 1]))
+                src_slice = slice(
+                    int(state_offsets[src_token]), int(state_offsets[src_token + 1])
+                )
+                dst_slice = slice(
+                    int(state_offsets[dst_token]), int(state_offsets[dst_token + 1])
+                )
                 if alpha_exp[src_slice, dst_slice].abs().sum().item() > 0:
                     pair_codes.append(src_token * vocab_size + dst_token)
         return torch.tensor(pair_codes, dtype=torch.long)
@@ -519,10 +561,14 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
             self.transitions.update_from_dense(transition_values)
         elif transition_values.ndim == 1:
             if transition_values.shape != self.transitions.transition_values.shape:
-                raise ValueError("transition_values has the wrong sparse storage shape.")
+                raise ValueError(
+                    "transition_values has the wrong sparse storage shape."
+                )
             self.transitions.transition_values.copy_(transition_values)
         else:
-            raise ValueError("transition_values must be either dense [H, H] or sparse flat [nnz].")
+            raise ValueError(
+                "transition_values must be either dense [H, H] or sparse flat [nnz]."
+            )
 
         if transition_floor is None:
             self.transition_floor.zero_()
@@ -538,7 +584,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         device = self.device if device is None else device
         transition_counts = self.transitions.empty_counts(device=device)
-        gamma_counts = torch.zeros(self.hidden_states, device=device, dtype=self.gamma.dtype)
+        gamma_counts = torch.zeros(
+            self.hidden_states, device=device, dtype=self.gamma.dtype
+        )
         return transition_counts, gamma_counts
 
     @torch.no_grad()
@@ -548,15 +596,19 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         gamma_counts: torch.Tensor,
         pseudocount: float,
     ) -> None:
-        new_transition_values, new_transition_floor = self.transitions.normalized_values_from_counts(
-            transition_counts=transition_counts,
-            pseudocount=pseudocount,
-            hidden_states=self.hidden_states,
+        new_transition_values, new_transition_floor = (
+            self.transitions.normalized_values_from_counts(
+                transition_counts=transition_counts,
+                pseudocount=pseudocount,
+                hidden_states=self.hidden_states,
+            )
         )
         gamma_counts = gamma_counts.to(self.device, dtype=self.gamma.dtype)
         gamma_counts = gamma_counts + pseudocount / self.hidden_states
         gamma_counts = gamma_counts / gamma_counts.sum()
-        self.update_params(new_transition_values, torch.log(gamma_counts), new_transition_floor)
+        self.update_params(
+            new_transition_values, torch.log(gamma_counts), new_transition_floor
+        )
 
     def _token_slice(self, token_id: int) -> slice:
         start = int(self.state_offsets[token_id].item())
@@ -574,14 +626,20 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         floor = self.transition_floor[source_slice].unsqueeze(1)
         return floor.expand(src_size, dst_size)
 
-    def _floor_project(self, source_slice: slice, child_messages: torch.Tensor) -> torch.Tensor:
+    def _floor_project(
+        self, source_slice: slice, child_messages: torch.Tensor
+    ) -> torch.Tensor:
         floor = torch.log(self.transition_floor[source_slice]).unsqueeze(1)
         child_logsum = torch.logsumexp(child_messages, dim=0, keepdim=True)
         return floor + child_logsum
 
-    def _stable_project(self, transition: torch.Tensor, messages: torch.Tensor) -> torch.Tensor:
+    def _stable_project(
+        self, transition: torch.Tensor, messages: torch.Tensor
+    ) -> torch.Tensor:
         msg_max = torch.amax(messages, dim=0, keepdim=True)
-        msg_max = torch.where(torch.isfinite(msg_max), msg_max, torch.zeros_like(msg_max))
+        msg_max = torch.where(
+            torch.isfinite(msg_max), msg_max, torch.zeros_like(msg_max)
+        )
         probs = torch.exp(messages - msg_max)
         probs = torch.nan_to_num(probs, nan=0.0, posinf=0.0, neginf=0.0)
         out = matmul(transition, probs)
@@ -596,7 +654,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         pair_codes = curr_tokens * self.vocab_size + next_tokens
         num_blocks = int(self.transitions.pair_codes.numel())
         if num_blocks == 0:
-            return torch.zeros_like(pair_codes), torch.zeros_like(pair_codes, dtype=torch.bool)
+            return torch.zeros_like(pair_codes), torch.zeros_like(
+                pair_codes, dtype=torch.bool
+            )
 
         positions = torch.searchsorted(self.transitions.pair_codes, pair_codes)
         in_range = positions < num_blocks
@@ -612,7 +672,11 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         for src_size in self.clone_size_values:
             src_mask = src_sizes == src_size
             for dst_size in self.clone_size_values:
-                cols = (src_mask & (dst_sizes == dst_size)).nonzero(as_tuple=False).squeeze(-1)
+                cols = (
+                    (src_mask & (dst_sizes == dst_size))
+                    .nonzero(as_tuple=False)
+                    .squeeze(-1)
+                )
                 if cols.numel() > 0:
                     yield src_size, dst_size, cols
 
@@ -648,7 +712,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
             local_block_idx = block_idx[cols[local_rows]]
             starts = self.transitions.block_value_start[local_block_idx]
             offsets = starts[:, None] + torch.arange(src_size * dst_size, device=device)
-            values = self.transitions.transition_values[offsets].view(-1, src_size, dst_size)
+            values = self.transitions.transition_values[offsets].view(
+                -1, src_size, dst_size
+            )
             blocks[local_rows] = values
 
         src_starts = self.state_offsets[curr_tokens[cols]]
@@ -684,7 +750,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
             )
             child = child_messages[cols, :dst_size]
             child_max = torch.amax(child, dim=1, keepdim=True)
-            child_max = torch.where(torch.isfinite(child_max), child_max, torch.zeros_like(child_max))
+            child_max = torch.where(
+                torch.isfinite(child_max), child_max, torch.zeros_like(child_max)
+            )
             child_probs = torch.exp(child - child_max)
             child_probs = torch.nan_to_num(child_probs, nan=0.0, posinf=0.0, neginf=0.0)
             projected = torch.bmm(blocks, child_probs.unsqueeze(-1)).squeeze(-1)
@@ -692,9 +760,13 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
 
         return parent_messages
 
-    def forward_observed_compact(self, input_ids: torch.Tensor) -> tuple[list[torch.Tensor], torch.Tensor]:
+    def forward_observed_compact(
+        self, input_ids: torch.Tensor
+    ) -> tuple[list[torch.Tensor], torch.Tensor]:
         if torch.any(input_ids == -1):
-            raise ValueError("forward_observed_compact requires fully observed input_ids.")
+            raise ValueError(
+                "forward_observed_compact requires fully observed input_ids."
+            )
 
         batch_size, seq_len = input_ids.shape
         messages: list[torch.Tensor] = [
@@ -732,7 +804,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         )
         for size, cols in self._compact_token_size_groups(first_sizes):
             offsets = first_starts[cols, None] + torch.arange(size, device=self.device)
-            loglik[cols] = torch.logsumexp(self.gamma[offsets] + messages[0][cols, :size], dim=1)
+            loglik[cols] = torch.logsumexp(
+                self.gamma[offsets] + messages[0][cols, :size], dim=1
+            )
 
         return messages, loglik
 
@@ -745,7 +819,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         gamma_flow: torch.Tensor,
     ) -> None:
         if torch.any(input_ids == -1):
-            raise ValueError("backward_observed_compact requires fully observed input_ids.")
+            raise ValueError(
+                "backward_observed_compact requires fully observed input_ids."
+            )
 
         batch_size, seq_len = input_ids.shape
         pf = torch.zeros(
@@ -759,7 +835,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         first_starts = self.state_offsets[first_tokens]
         for size, cols in self._compact_token_size_groups(first_sizes):
             offsets = first_starts[cols, None] + torch.arange(size, device=self.device)
-            local_pf = torch.exp(self.gamma[offsets] + messages[0][cols, :size] - loglik[cols, None])
+            local_pf = torch.exp(
+                self.gamma[offsets] + messages[0][cols, :size] - loglik[cols, None]
+            )
             local_pf = torch.nan_to_num(local_pf, nan=0.0, posinf=0.0, neginf=0.0)
             pf[cols, :size] = local_pf
             gamma_flow.index_add_(0, offsets.reshape(-1), local_pf.reshape(-1))
@@ -805,14 +883,18 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
                 * blocks
                 * torch.exp(child.unsqueeze(1) - parent.unsqueeze(-1))
             )
-            local_counts = torch.nan_to_num(local_counts, nan=0.0, posinf=0.0, neginf=0.0)
+            local_counts = torch.nan_to_num(
+                local_counts, nan=0.0, posinf=0.0, neginf=0.0
+            )
 
             local_matched = matched[cols]
             if local_matched.any():
                 local_rows = local_matched.nonzero(as_tuple=False).squeeze(-1)
                 local_block_idx = block_idx[cols[local_rows]]
                 starts = self.transitions.block_value_start[local_block_idx]
-                offsets = starts[:, None] + torch.arange(src_size * dst_size, device=self.device)
+                offsets = starts[:, None] + torch.arange(
+                    src_size * dst_size, device=self.device
+                )
                 transition_counts.index_add_(
                     0,
                     offsets.reshape(-1),
@@ -858,7 +940,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         expected_counts = expected_counts * transition_block
 
         parent_max = torch.amax(parent_block, dim=1, keepdim=True)
-        parent_max = torch.where(torch.isfinite(parent_max), parent_max, torch.zeros_like(parent_max))
+        parent_max = torch.where(
+            torch.isfinite(parent_max), parent_max, torch.zeros_like(parent_max)
+        )
         parent_probs = torch.exp(parent_block - parent_max)
         parent_probs = torch.nan_to_num(parent_probs, nan=0.0, posinf=0.0, neginf=0.0)
 
@@ -866,7 +950,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         ratio[parent_probs == 0.0] = 0.0
         ratio = torch.nan_to_num(ratio, nan=0.0, posinf=0.0, neginf=0.0)
 
-        next_flow = matmul(ratio, flow_transition_block) * torch.exp(child_block - parent_max)
+        next_flow = matmul(ratio, flow_transition_block) * torch.exp(
+            child_block - parent_max
+        )
         next_flow = torch.nan_to_num(next_flow, nan=0.0, posinf=0.0, neginf=0.0)
         return expected_counts, next_flow
 
@@ -878,7 +964,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         source_slice: slice,
     ) -> torch.Tensor:
         parent_max = torch.amax(parent_block, dim=1, keepdim=True)
-        parent_max = torch.where(torch.isfinite(parent_max), parent_max, torch.zeros_like(parent_max))
+        parent_max = torch.where(
+            torch.isfinite(parent_max), parent_max, torch.zeros_like(parent_max)
+        )
         parent_probs = torch.exp(parent_block - parent_max)
         parent_probs = torch.nan_to_num(parent_probs, nan=0.0, posinf=0.0, neginf=0.0)
 
@@ -891,7 +979,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
         next_flow = weighted_floor * torch.exp(child_block - parent_max)
         return torch.nan_to_num(next_flow, nan=0.0, posinf=0.0, neginf=0.0)
 
-    def _iter_token_groups(self, tokens: torch.Tensor, mask: torch.Tensor) -> Iterable[tuple[int, torch.Tensor]]:
+    def _iter_token_groups(
+        self, tokens: torch.Tensor, mask: torch.Tensor
+    ) -> Iterable[tuple[int, torch.Tensor]]:
         if not mask.any():
             return []
         cols_all = mask.nonzero(as_tuple=False).squeeze(-1)
@@ -916,7 +1006,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
             groups.append((int(pair_code.item()), cols_all[pair_codes == pair_code]))
         return groups
 
-    def _initialize_last_messages(self, last_tokens: torch.Tensor, batch_size: int) -> torch.Tensor:
+    def _initialize_last_messages(
+        self, last_tokens: torch.Tensor, batch_size: int
+    ) -> torch.Tensor:
         messages = torch.full(
             (self.hidden_states, batch_size),
             float("-inf"),
@@ -953,7 +1045,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
                 block = self._effective_block(block_idx)
 
             child_messages = next_messages[dest_slice, cols]
-            new_messages[source_slice, cols] = self._stable_project(block, child_messages)
+            new_messages[source_slice, cols] = self._stable_project(
+                block, child_messages
+            )
 
     def _propagate_observed_to_missing(
         self,
@@ -975,7 +1069,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
                 block = self.transitions.block(block_idx)
                 child_messages = next_messages[spec.dst_start : spec.dst_stop, cols]
                 contrib = self._stable_project(block, child_messages)
-                new_messages[source_slice, cols] = torch.logaddexp(new_messages[source_slice, cols], contrib)
+                new_messages[source_slice, cols] = torch.logaddexp(
+                    new_messages[source_slice, cols], contrib
+                )
 
     def _propagate_missing_to_observed(
         self,
@@ -990,13 +1086,17 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
             child_messages = next_messages[dest_slice, cols]
             all_sources = slice(0, self.hidden_states)
             floor_contrib = self._floor_project(all_sources, child_messages)
-            new_messages[:, cols] = torch.logaddexp(new_messages[:, cols], floor_contrib)
+            new_messages[:, cols] = torch.logaddexp(
+                new_messages[:, cols], floor_contrib
+            )
             for block_idx in self.transitions.incoming_block_ids[token_id]:
                 spec = self.transitions.block_specs[block_idx]
                 block = self.transitions.block(block_idx)
                 contrib = self._stable_project(block, child_messages)
                 source_slice = slice(spec.src_start, spec.src_stop)
-                new_messages[source_slice, cols] = torch.logaddexp(new_messages[source_slice, cols], contrib)
+                new_messages[source_slice, cols] = torch.logaddexp(
+                    new_messages[source_slice, cols], contrib
+                )
 
     def _propagate_missing_to_missing(
         self,
@@ -1017,7 +1117,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
             child_messages = next_messages[spec.dst_start : spec.dst_stop, cols]
             contrib = self._stable_project(block, child_messages)
             source_slice = slice(spec.src_start, spec.src_stop)
-            new_messages[source_slice, cols] = torch.logaddexp(new_messages[source_slice, cols], contrib)
+            new_messages[source_slice, cols] = torch.logaddexp(
+                new_messages[source_slice, cols], contrib
+            )
 
     def forward(self, input_ids: torch.Tensor) -> list[torch.Tensor]:
         batch_size, seq_len = input_ids.shape
@@ -1161,7 +1263,9 @@ class CHMM(nn.Module, PyTorchModelHubMixin):
                 flow_block = self.transitions.block(block_idx)
                 source_slice = slice(spec.src_start, spec.src_stop)
                 pf_block = pf[cols, source_slice]
-                parent_block = torch.permute(parent_messages[source_slice, cols], (1, 0))
+                parent_block = torch.permute(
+                    parent_messages[source_slice, cols], (1, 0)
+                )
 
                 local_counts, local_next_flow = self._compute_local_backward_stats(
                     pf_block=pf_block,

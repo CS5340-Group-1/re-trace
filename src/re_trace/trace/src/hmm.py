@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from huggingface_hub import PyTorchModelHubMixin
 
+
 def stable_mvm(log_W, log_x):
     log_x_max = torch.amax(log_x)
     log_x_norm = log_x - log_x_max
@@ -15,6 +16,7 @@ def stable_mvm(log_W, log_x):
     z_norm = W_norm @ x_norm
 
     return torch.log(z_norm) + log_x_max + torch.squeeze(log_W_max, dim=-1)
+
 
 class HMM(nn.Module, PyTorchModelHubMixin):
     def __init__(self, hidden_size, vocab_size, eos_token_id, sep_token_id=None):
@@ -49,11 +51,14 @@ class HMM(nn.Module, PyTorchModelHubMixin):
         self.eos_token_id = eos_token_id
         self.sep_token_id = sep_token_id
 
-
         # ------------------- Set #1 of weights -------------------------
-        self.register_buffer('weights_tensor', torch.zeros(vocab_size, dtype=torch.float32))
-        self.register_buffer('exp_weights', torch.ones(vocab_size, dtype=torch.float32))
-        self.register_buffer('weighted_beta', torch.zeros(hidden_size, vocab_size, dtype=torch.float32))
+        self.register_buffer(
+            "weights_tensor", torch.zeros(vocab_size, dtype=torch.float32)
+        )
+        self.register_buffer("exp_weights", torch.ones(vocab_size, dtype=torch.float32))
+        self.register_buffer(
+            "weighted_beta", torch.zeros(hidden_size, vocab_size, dtype=torch.float32)
+        )
 
         # Initialize set #1 to something by default (optional)
         self.set_weights(weights_tensor=torch.zeros(vocab_size))
@@ -91,7 +96,9 @@ class HMM(nn.Module, PyTorchModelHubMixin):
         weighted_beta = P_x_given_s * self.exp_weights.unsqueeze(0)  # (H, V)
         self.weighted_beta.copy_(weighted_beta)  # (H, V)
 
-    def forward_step(self, current_z: torch.Tensor, next_tokens: torch.Tensor) -> torch.Tensor:
+    def forward_step(
+        self, current_z: torch.Tensor, next_tokens: torch.Tensor
+    ) -> torch.Tensor:
         """
         Compute one forward step of the HMM given current hidden state distribution and next tokens.
 
@@ -104,7 +111,9 @@ class HMM(nn.Module, PyTorchModelHubMixin):
         """
         # Transition: P(z_t+1 | z_t) using alpha_exp matrix
         # current_z: (B, H), alpha_exp: (H, H) -> (B, H, H)
-        transition_probs = current_z.unsqueeze(2) * self.alpha_exp.unsqueeze(0)  # (B, H, H)
+        transition_probs = current_z.unsqueeze(2) * self.alpha_exp.unsqueeze(
+            0
+        )  # (B, H, H)
 
         # Sum over previous states to get marginal: P(z_t+1)
         next_z_marginal = transition_probs.sum(dim=1)  # (B, H)
@@ -112,7 +121,7 @@ class HMM(nn.Module, PyTorchModelHubMixin):
         # Emission: P(x_t+1 | z_t+1) using beta matrix
         # beta: (H, V), next_tokens: (B,) -> (B, H)
         emission_logprobs = self.beta[:, next_tokens].T  # (B, H)
-        emission_probs = torch.exp(emission_logprobs)    # (B, H)
+        emission_probs = torch.exp(emission_logprobs)  # (B, H)
 
         # Apply emission probabilities
         updated_z = next_z_marginal * emission_probs  # (B, H)
@@ -130,14 +139,18 @@ class HMM(nn.Module, PyTorchModelHubMixin):
         alpha_prev = gamma + emission
 
         for t in range(1, m):
-            alpha_prev = torch.vmap(stable_mvm, in_dims=(None, 0))(torch.log(self.alpha_exp + 1e-12).T, alpha_prev)
+            alpha_prev = torch.vmap(stable_mvm, in_dims=(None, 0))(
+                torch.log(self.alpha_exp + 1e-12).T, alpha_prev
+            )
             x_t = input_ids[:, t]
             emission = self.beta[:, x_t].transpose(0, 1)
             alpha_prev = alpha_prev + emission
 
         return alpha_prev
 
-    def compute_backward_expectation_for_weights(self, T: int, weighted_beta: torch.Tensor) -> torch.Tensor:
+    def compute_backward_expectation_for_weights(
+        self, T: int, weighted_beta: torch.Tensor
+    ) -> torch.Tensor:
         """
         Reusable routine to compute B(t, s) for any given weighted_beta.
         B[t, s] = E[exp{ sum_{i=t+1}^T w(x_i) }] for z_t = s.
@@ -163,4 +176,3 @@ class HMM(nn.Module, PyTorchModelHubMixin):
         Compute backward expectation using the *first* set of weights (weighted_beta).
         """
         return self.compute_backward_expectation_for_weights(T, self.weighted_beta)
-
