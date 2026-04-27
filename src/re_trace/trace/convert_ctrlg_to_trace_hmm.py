@@ -5,8 +5,9 @@ import torch
 from safetensors.torch import load_file
 from src.hmm import HMM as TraceHMM
 
-src_dir = Path("/home/e/e1554651/CS5340/projects/trace/models/hmm_gpt2-large_seq-len-32_4096/checkpoint-200")
-dst_dir = Path("/home/e/e1554651/CS5340/projects/trace/models/hmm_gpt2-large_seq-len-32_4096_trace/checkpoint-200")
+NAME = "hmm_gpt2-large_seq-len-32_4096"
+src_dir = Path(f"./models/{NAME}/checkpoint-200")
+dst_dir = Path(f"./models/{NAME}_trace/checkpoint-200")
 dst_dir.mkdir(parents=True, exist_ok=True)
 
 # Load Ctrl-G config
