@@ -140,7 +140,9 @@ class CHMMGuidedLogitsProcessor(LogitsProcessor):
 
         groups_by_token: dict[
             int,
-            list[tuple[int, int, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]],
+            list[
+                tuple[int, int, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+            ],
         ] = defaultdict(list)
         for (src_token, src_size, dst_size), starts in grouped.items():
             value_starts, dst_starts = zip(*starts)
@@ -230,7 +232,9 @@ class CHMMGuidedLogitsProcessor(LogitsProcessor):
         for src_token in torch.unique(current_tokens).detach().cpu().tolist():
             src_rows = (current_tokens == src_token).nonzero(as_tuple=False).squeeze(-1)
             source_slice = self._token_slice(int(src_token))
-            for dst_token in torch.unique(next_tokens[src_rows]).detach().cpu().tolist():
+            for dst_token in (
+                torch.unique(next_tokens[src_rows]).detach().cpu().tolist()
+            ):
                 rows = src_rows[next_tokens[src_rows] == int(dst_token)]
                 dest_slice = self._token_slice(int(dst_token))
                 next_alpha[rows, dest_slice] += floor_weight[rows, None]
@@ -242,7 +246,9 @@ class CHMMGuidedLogitsProcessor(LogitsProcessor):
                     )
 
         row_sums = next_alpha.sum(dim=1, keepdim=True)
-        bad_rows = (row_sums.squeeze(1) <= self.epsilon).nonzero(as_tuple=False).squeeze(-1)
+        bad_rows = (
+            (row_sums.squeeze(1) <= self.epsilon).nonzero(as_tuple=False).squeeze(-1)
+        )
         if bad_rows.numel() > 0:
             self.zero_probability_resets += int(bad_rows.numel())
             for row_idx in bad_rows.detach().cpu().tolist():
@@ -254,7 +260,9 @@ class CHMMGuidedLogitsProcessor(LogitsProcessor):
 
         return next_alpha / row_sums.clamp_min(self.epsilon)
 
-    def _forward_observed_tokens(self, token_ids: List[int]) -> Tuple[torch.Tensor, int]:
+    def _forward_observed_tokens(
+        self, token_ids: List[int]
+    ) -> Tuple[torch.Tensor, int]:
         if not token_ids:
             token_ids = [int(self.chmm.eos_token_id)]
         for token_id in token_ids:
@@ -273,8 +281,12 @@ class CHMMGuidedLogitsProcessor(LogitsProcessor):
 
         current_token = first_token
         for token_id in token_ids[1:]:
-            current_tensor = torch.tensor([current_token], device=self.device, dtype=torch.long)
-            next_tensor = torch.tensor([int(token_id)], device=self.device, dtype=torch.long)
+            current_tensor = torch.tensor(
+                [current_token], device=self.device, dtype=torch.long
+            )
+            next_tensor = torch.tensor(
+                [int(token_id)], device=self.device, dtype=torch.long
+            )
             alpha = self._observe_tokens(
                 alpha.unsqueeze(0),
                 current_tensor,
@@ -307,7 +319,9 @@ class CHMMGuidedLogitsProcessor(LogitsProcessor):
             alphas.append(alpha)
             current_tokens.append(current_token)
 
-        self.alpha_prev = torch.stack(alphas, dim=0).repeat_interleave(repeat_interleave, dim=0)
+        self.alpha_prev = torch.stack(alphas, dim=0).repeat_interleave(
+            repeat_interleave, dim=0
+        )
         self.current_tokens = torch.tensor(
             current_tokens,
             device=self.device,
@@ -361,7 +375,9 @@ class CHMMGuidedLogitsProcessor(LogitsProcessor):
                     )
                     projected = torch.einsum("bs,nsd->bnd", source_alpha, block_values)
                     dst_offsets = local_dst_starts[:, None] + dst_local_offsets
-                    row_offsets = rows[:, None, None].expand(-1, projected.shape[1], dst_size)
+                    row_offsets = rows[:, None, None].expand(
+                        -1, projected.shape[1], dst_size
+                    )
                     col_offsets = dst_offsets[None, :, :].expand(rows.shape[0], -1, -1)
                     pred.index_put_(
                         (row_offsets.reshape(-1), col_offsets.reshape(-1)),
@@ -370,7 +386,9 @@ class CHMMGuidedLogitsProcessor(LogitsProcessor):
                     )
 
         row_sums = pred.sum(dim=1, keepdim=True)
-        bad_rows = (row_sums.squeeze(1) <= self.epsilon).nonzero(as_tuple=False).squeeze(-1)
+        bad_rows = (
+            (row_sums.squeeze(1) <= self.epsilon).nonzero(as_tuple=False).squeeze(-1)
+        )
         if bad_rows.numel() > 0:
             self.zero_probability_resets += int(bad_rows.numel())
             pred[bad_rows] = self.gamma_probs.unsqueeze(0)
@@ -429,7 +447,9 @@ class CHMMGuidedLogitsProcessor(LogitsProcessor):
         logit_expectation = torch.log(expectation / (1.0 - expectation))
         guidance_weight = torch.sigmoid(self.a * logit_expectation)
 
-        lm_probs = torch.softmax(scores.to(device=self.device, dtype=self.dtype), dim=-1)
+        lm_probs = torch.softmax(
+            scores.to(device=self.device, dtype=self.dtype), dim=-1
+        )
         adjusted = lm_probs * guidance_weight
         adjusted = adjusted / adjusted.sum(dim=-1, keepdim=True).clamp_min(self.epsilon)
         return torch.log(adjusted.clamp_min(self.epsilon)).to(
